@@ -14,6 +14,7 @@ def perform_fft(image_pixels, width, height):
     return real_part, imag_part
 
 
+# prints values in a formatted way
 def print_values(label, array):
     print(f"{label}:")
     for row in array:
@@ -27,6 +28,11 @@ width = 10
 height = 10
 
 real, imag = perform_fft(image_pixels, width, height)
-print(image_pixels)
-print_values("Real Part", real)
-print_values("Imaginary Part", imag)
+# print input and output arrays
+print("Input:")
+for i in range(height):
+    print(image_pixels[i * width : (i + 1) * width])
+print("")
+
+print_values("Output-Real Part", real)
+print_values("Output-Imaginary Part", imag)

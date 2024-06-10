@@ -2,13 +2,14 @@ import Foundation
 import Accelerate
 import AppKit
 
-// Function to generate an array of Float numbers from 1 to 100
+// function to generate an array of Float numbers from 1 to 100
 func generateArray(from start: Int, to end: Int) -> [Float] {
     return (start...end).map { Float($0) }
 }
 
 var pixels: [Float] = generateArray(from: 1, to: 100)
-print("input", pixels)
+print("Input:", pixels)
+print("")
 
 func printValues(_ label: String, realPart: [Float], width: Int, height: Int) {
     print(label)
@@ -23,7 +24,7 @@ func printValues(_ label: String, realPart: [Float], width: Int, height: Int) {
 
 func performFFT(serialImagePixels: inout [Float], width: Int, height: Int) -> (real: [Float], imag: [Float]) {
     
-    // Initialize the arrays for the real and imaginary parts of the complex numbers
+    // initialize the arrays for the real and imaginary parts of the complex numbers
     var complexReals = [Float](repeating: 0, count: width * height)
     var complexImaginaries = [Float](repeating: 0, count: width * height)
 
@@ -39,7 +40,7 @@ func performFFT(serialImagePixels: inout [Float], width: Int, height: Int) -> (r
             var output = Array(UnsafeBufferPointer(start: splitComplex.realp, count: width * height))
             printValues("before FFT", realPart: output, width: width, height: height)
             
-            // The binary logarithm of `max(rowCount, columnCount)`.
+            // binary logarithm of `max(rowCount, columnCount)`.
             let setupLog2n = vDSP_Length(log2(Float(max(width, height))))
 
             let widthLog2n = vDSP_Length(log2(Float(width)))
@@ -62,10 +63,10 @@ func performFFT(serialImagePixels: inout [Float], width: Int, height: Int) -> (r
     return (complexReals, complexImaginaries)
 }
 
-// Example of calling the function
+// example of calling the function
 let width = 10
 let height = 10
 
 let (real, imag) = performFFT(serialImagePixels: &pixels, width: width, height: height)
-print("Real Part: \(real)")
-print("Imaginary Part: \(imag)")
+printValues("Output-Real Part:", realPart: real, width: width, height: height)
+printValues("Output-Imaginary Part:", realPart: imag, width: width, height: height)
