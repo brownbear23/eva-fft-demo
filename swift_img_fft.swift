@@ -2,6 +2,7 @@ import Foundation
 import Accelerate
 import AppKit
 
+// function to load image and convert to grayscale pixel data
 func loadImage(path: String) -> (image: NSImage?, pixelData: [Float]?, width: Int, height: Int)? {
     guard let image = NSImage(contentsOfFile: path),
           let tiffData = image.tiffRepresentation,
@@ -23,30 +24,29 @@ func loadImage(path: String) -> (image: NSImage?, pixelData: [Float]?, width: In
     return (image, pixelData, width, height)
 }
 
-// array of float values of pixel intensities of image and image's width and height for input
+/// array of float values of pixel intensities of image and image's width and height for input
 func performFFT(serialImagePixels: inout [Float], width: Int, height: Int) -> (real: [Float], imag: [Float]) {
-    var complexReals = serialImagePixels // stores real part from input
-    var complexImaginaries = [Float](repeating: 0, count: width * height) // stores imaginary part from FFT
-
-    complexReals.withUnsafeMutableBufferPointer { realPtr in // returns body closure parameter
-
+    var complexReals = serialImagePixels
+    var complexImaginaries = [Float](repeating: 0, count: width * height)
+    
+    complexReals.withUnsafeMutableBufferPointer { realPtr in
         complexImaginaries.withUnsafeMutableBufferPointer { imagPtr in
-            var splitComplex = DSPSplitComplex(realp: realPtr.baseAddress!, imagp: imagPtr.baseAddress!) // single-precision complex vector with the real and imaginary parts
-            let setupLog2n = vDSP_Length(log2(Float(max(width, height)))) // unsigned-int value that represents the size of vectors
+            var splitComplex = DSPSplitComplex(realp: realPtr.baseAddress!, imagp: imagPtr.baseAddress!)
+            let setupLog2n = vDSP_Length(log2(Float(max(width, height))))
             let widthLog2n = vDSP_Length(log2(Float(width)))
             let heightLog2n = vDSP_Length(log2(Float(height)))
             
-            if let fft = vDSP_create_fftsetup(setupLog2n, FFTRadix(kFFTRadix2)) { // returns a setup structure that contains precalculated data for single-precision FFT functions
-                vDSP_fft2d_zip(fft, &splitComplex, 1, 0, widthLog2n, heightLog2n,  FFTDirection(kFFTDirection_Forward)) // computes 2D forward/inverse in-place
-                vDSP_destroy_fftsetup(fft) // deallocates an existing single-precision FFT setup structure
-
+            if let fft = vDSP_create_fftsetup(setupLog2n, FFTRadix(kFFTRadix2)) {
+                vDSP_fft2d_zip(fft, &splitComplex, 1, 0, widthLog2n, heightLog2n, FFTDirection(kFFTDirection_Forward))
+                vDSP_destroy_fftsetup(fft)
             }
         }
     }
-    //  real and imaginary parts after FFT
+    // real and imaginary parts after FFT
     return (complexReals, complexImaginaries)
 }
 
+// function to compute magnitude and phase from FFT results
 func computeMagnitudeAndPhase(real: [Float], imag: [Float]) -> (magnitude: [Float], phase: [Float]) {
     var magnitudes = [Float](repeating: 0, count: real.count)
     var phases = [Float](repeating: 0, count: real.count)
@@ -60,7 +60,7 @@ func computeMagnitudeAndPhase(real: [Float], imag: [Float]) -> (magnitude: [Floa
         }
     }
     
-    // Apply log scale to magnitudes for better visualization
+    // apply log scale to magnitudes for better visualization
     var logMagnitudes = [Float](repeating: 0, count: real.count)
     var N = Int32(real.count)
     vvlog1pf(&logMagnitudes, magnitudes, &N)
@@ -68,6 +68,7 @@ func computeMagnitudeAndPhase(real: [Float], imag: [Float]) -> (magnitude: [Floa
     return (logMagnitudes, phases)
 }
 
+// function to create NSImage from pixel data
 func createImage(from pixelData: [Float], width: Int, height: Int) -> NSImage? {
     let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height, bitsPerSample: 8, samplesPerPixel: 1, hasAlpha: false, isPlanar: false, colorSpaceName: .deviceWhite, bytesPerRow: width, bitsPerPixel: 8)
     
