@@ -14,7 +14,6 @@ def perform_fft(img):
     # output
     return real_part, imag_part
 
-
 def print_values(label, array):
     print(f"{label}:")
     for row in array:
