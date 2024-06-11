@@ -8,16 +8,20 @@ func generateArray(from start: Int, to end: Int) -> [Float] {
 }
 
 var pixels: [Float] = generateArray(from: 1, to: 100)
-print("Input:", pixels)
-print("")
 
-func printValues(_ label: String, realPart: [Float], width: Int, height: Int) {
+func printValues(_ label: String, values: [Float], width: Int, height: Int) {
     print(label)
+    let maxVal = values.map { abs($0) }.max() ?? 0
+    let maxValLength = String(format: "%.2f", maxVal).count + 1 // Determine the width based on the maximum value
+    
     for i in 0..<height {
+        var formattedRow: [String] = []
         for j in 0..<width {
-            print(realPart[i * width + j], terminator: " ")
+            let val = values[i * width + j]
+            let formattedVal = String(format: "%\(maxValLength).2f", val)
+            formattedRow.append(formattedVal)
         }
-        print("")
+        print(formattedRow.joined(separator: " "))
     }
     print("")
 }
@@ -67,6 +71,7 @@ func performFFT(serialImagePixels: inout [Float], width: Int, height: Int) -> (r
 let width = 10
 let height = 10
 
+print("Input:", values: pixels, width: width, height: height)
 let (real, imag) = performFFT(serialImagePixels: &pixels, width: width, height: height)
 printValues("Output-Real Part:", realPart: real, width: width, height: height)
 printValues("Output-Imaginary Part:", realPart: imag, width: width, height: height)
