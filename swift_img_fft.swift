@@ -87,8 +87,10 @@ func createImage(from pixelData: [Float], width: Int, height: Int) -> NSImage? {
     return image
 }
 
-if let imagePath = "/Users/clarakim/Desktop/img.jpg" as String?,
-   let (originalImage, pixelData, width, height) = loadImage(path: imagePath),
+let scriptDir = FileManager.default.currentDirectoryPath
+let imagePath = "\(scriptDir)/images/sample_img.jpg"
+
+if let (originalImage, pixelData, width, height) = loadImage(path: imagePath),
    var pixels = pixelData {
     
     let (real, imag) = performFFT(serialImagePixels: &pixels, width: width, height: height)
