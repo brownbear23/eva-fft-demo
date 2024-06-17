@@ -1,6 +1,7 @@
 import Foundation
 import Accelerate
 import AppKit
+import PlaygroundSupport
 
 // function to load image and convert to grayscale pixel data
 func loadImage(path: String) -> (image: NSImage?, pixelData: [Float]?, width: Int, height: Int)? {
@@ -24,7 +25,7 @@ func loadImage(path: String) -> (image: NSImage?, pixelData: [Float]?, width: In
     return (image, pixelData, width, height)
 }
 
-/// array of float values of pixel intensities of image and image's width and height for input
+// array of float values of pixel intensities of image and image's width and height for input
 func performFFT(serialImagePixels: inout [Float], width: Int, height: Int) -> (real: [Float], imag: [Float]) {
     var complexReals = serialImagePixels
     var complexImaginaries = [Float](repeating: 0, count: width * height)
@@ -87,10 +88,9 @@ func createImage(from pixelData: [Float], width: Int, height: Int) -> NSImage? {
     return image
 }
 
-let scriptDir = FileManager.default.currentDirectoryPath
-let imagePath = "\(scriptDir)/images/sample_img.jpg"
-
-if let (originalImage, pixelData, width, height) = loadImage(path: imagePath),
+// Use the correct path for the image within the Playground
+if let resourcePath = Bundle.main.path(forResource: "sample_img", ofType: "jpg"),
+   let (originalImage, pixelData, width, height) = loadImage(path: resourcePath),
    var pixels = pixelData {
     
     let (real, imag) = performFFT(serialImagePixels: &pixels, width: width, height: height)
@@ -120,3 +120,6 @@ if let (originalImage, pixelData, width, height) = loadImage(path: imagePath),
         app.run()
     }
 }
+
+// Keep the Playground running
+PlaygroundPage.current.needsIndefiniteExecution = true
