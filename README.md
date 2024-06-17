@@ -49,7 +49,7 @@ In python_int_fft.py file, np.fft.ftt2 function is performed with input of image
 ```
 
 ## Swift FFT function
-swift_img_fft.swift file is to run performFFT function on an image. With the input of the image on the left, it gets converted to grayscale. Then performFFT function is performed on the grayscale image to output middle and right images which are fast fourier transform's magnitude and phase.
+swift_img_fft.swift file is to run performFFT function on an image. With the input of the image on the left, it gets converted to grayscale. Then performFFT function is performed on the grayscale image to output middle and right images which are fast fourier transform's magnitude and phase. Swift's performFFT function is based on vDSP_fft2d_zip. 
 ![Swift output](outputs/swift_output.png)
 
 In swift_int_fft.swift file, performFFT function is performed with input of serialImagePixels, width, and height. For serialImagePixels, list of floats that represent image pixels, fast fourier transform is performed with performFFT function 
