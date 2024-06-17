@@ -3,7 +3,7 @@ import Accelerate
 import AppKit
 import PlaygroundSupport
 
-// Function to load image and convert to grayscale pixel data
+// load image and convert to grayscale pixel data
 func loadImage(path: String) -> (image: NSImage?, pixelData: [Float]?, width: Int, height: Int)? {
     guard let image = NSImage(contentsOfFile: path) else {
         print("Failed to load image from path: \(path)")
@@ -32,31 +32,39 @@ func loadImage(path: String) -> (image: NSImage?, pixelData: [Float]?, width: In
     return (image, pixelData, width, height)
 }
 
-/// Array of float values of pixel intensities of image and image's width and height for input
+// array of float values of pixel intensities of image and image's width and height for input
 func performFFT(serialImagePixels: inout [Float], width: Int, height: Int) -> (real: [Float], imag: [Float]) {
+    // initialize the real part of complex numbers
     var complexReals = serialImagePixels
+    // initialize the imaginary part of the complex numbers
     var complexImaginaries = [Float](repeating: 0, count: width * height)
 
+    // withUnsafeMutableBufferPointer used
     complexReals.withUnsafeMutableBufferPointer { realPtr in
         complexImaginaries.withUnsafeMutableBufferPointer { imagPtr in
+            // initialize a DSPSplitComplex structure with pointers to the real and imaginary parts
             var splitComplex = DSPSplitComplex(realp: realPtr.baseAddress!, imagp: imagPtr.baseAddress!)
             let setupLog2n = vDSP_Length(log2(Float(max(width, height))))
             let widthLog2n = vDSP_Length(log2(Float(width)))
             let heightLog2n = vDSP_Length(log2(Float(height)))
 
+            // fft setup before performing FFT
             if let fft = vDSP_create_fftsetup(setupLog2n, FFTRadix(kFFTRadix2)) {
+                // perform FFT
                 vDSP_fft2d_zip(fft, &splitComplex, 1, 0, widthLog2n, heightLog2n, FFTDirection(kFFTDirection_Forward))
+                // destory FFT setup to free up memory
                 vDSP_destroy_fftsetup(fft)
             } else {
+                // when FFT setup object can't be created
                 print("Failed to create FFT setup.")
             }
         }
     }
-    // Real and imaginary parts after FFT
+    // real and imaginary parts after FFT
     return (complexReals, complexImaginaries)
 }
 
-// Function to compute magnitude and phase from FFT results
+// compute magnitude and phase from FFT results
 func computeMagnitudeAndPhase(real: [Float], imag: [Float]) -> (magnitude: [Float], phase: [Float]) {
     var magnitudes = [Float](repeating: 0, count: real.count)
     var phases = [Float](repeating: 0, count: real.count)
@@ -70,7 +78,7 @@ func computeMagnitudeAndPhase(real: [Float], imag: [Float]) -> (magnitude: [Floa
         }
     }
 
-    // Apply log scale to magnitudes for better visualization
+    // apply log scale to magnitudes for better visualization
     var logMagnitudes = [Float](repeating: 0, count: real.count)
     var N = Int32(real.count)
     vvlog1pf(&logMagnitudes, magnitudes, &N)
@@ -78,7 +86,7 @@ func computeMagnitudeAndPhase(real: [Float], imag: [Float]) -> (magnitude: [Floa
     return (logMagnitudes, phases)
 }
 
-// Function to create NSImage from pixel data
+// create NSImage from pixel data
 func createImage(from pixelData: [Float], width: Int, height: Int) -> NSImage? {
     let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height, bitsPerSample: 8, samplesPerPixel: 1, hasAlpha: false, isPlanar: false, colorSpaceName: .deviceWhite, bytesPerRow: width, bitsPerPixel: 8)
 
@@ -100,7 +108,7 @@ func createImage(from pixelData: [Float], width: Int, height: Int) -> NSImage? {
     return image
 }
 
-// Function to save NSImage to file
+// function to save NSImage to file
 func saveImage(_ image: NSImage, to path: String) -> Bool {
     guard let tiffData = image.tiffRepresentation,
           let bitmap = NSBitmapImageRep(data: tiffData),
@@ -118,7 +126,7 @@ func saveImage(_ image: NSImage, to path: String) -> Bool {
     }
 }
 
-// Use the Playground's Documents directory to save the images
+// use the Playground's Documents directory to save the images
 let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
 
 if let imagePath = Bundle.main.path(forResource: "sample_img", ofType: "jpg") {

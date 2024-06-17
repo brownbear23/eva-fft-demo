@@ -2,7 +2,7 @@ import Foundation
 import Accelerate
 import AppKit
 
-// function to generate an array of Float numbers from 1 to 100
+// generate an array of Float numbers from 1 to 100
 func generateArray(from start: Int, to end: Int) -> [Float] {
     return (start...end).map { Float($0) }
 }
@@ -12,7 +12,7 @@ var pixels: [Float] = generateArray(from: 1, to: 100)
 func printValues(_ label: String, values: [Float], width: Int, height: Int) {
     print(label)
     let maxVal = values.map { abs($0) }.max() ?? 0
-    let maxValLength = String(format: "%.2f", maxVal).count + 1 // Determine the width based on the maximum value
+    let maxValLength = String(format: "%.2f", maxVal).count + 1 
     
     for i in 0..<height {
         var formattedRow: [String] = []
@@ -31,10 +31,12 @@ func performFFT(serialImagePixels: inout [Float], width: Int, height: Int) -> (r
     var complexReals = [Float](repeating: 0, count: width * height)
     var complexImaginaries = [Float](repeating: 0, count: width * height)
 
+    // copy input image pixles into real part array
     complexReals = serialImagePixels
+    // withUnsafeMutableBufferPointer is used to get pointers to arrays
     complexReals.withUnsafeMutableBufferPointer { realPtr in
         complexImaginaries.withUnsafeMutableBufferPointer { imagPtr in
-              
+            // initializing for DSPlitComplex Structure
             var splitComplex = DSPSplitComplex(
                 realp: realPtr.baseAddress!,
                 imagp: imagPtr.baseAddress!)
@@ -44,17 +46,19 @@ func performFFT(serialImagePixels: inout [Float], width: Int, height: Int) -> (r
             let widthLog2n = vDSP_Length(log2(Float(width)))
             let heightLog2n = vDSP_Length(log2(Float(height)))
             
+            // fft setup object
             if let fft = vDSP_create_fftsetup(setupLog2n, FFTRadix(kFFTRadix2)) {
-                
+                // perform FFT on the split complex data
                 vDSP_fft2d_zip(fft, &splitComplex,
                                1, 0,
                                widthLog2n, heightLog2n,
                                FFTDirection(kFFTDirection_Forward))
-                
+                // destroy FFT setup to free up memory
                 vDSP_destroy_fftsetup(fft)
             }
         }
     }
+    // return real and imaginary parts after performing FFT
     return (complexReals, complexImaginaries)
 }
 

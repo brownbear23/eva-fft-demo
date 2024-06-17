@@ -1,5 +1,5 @@
 # FFT Documentation
-There is discrepancy between python's np.fft.fft2 function and swift's performFFT function. Same image and array of numbers with width and height are used for both functions. Their inputs and outputs are displayed individually below. 
+There is discrepancy between python's np.fft.fft2 function and swift's performFFT function. Same image and array of numbers with width and height are used for both functions. Their inputs and outputs are displayed individually below. Recommend running swift files, img.playground and int.playground, individually in Xcode and python files, python_img_fft.py and python_int_fft.py, in VSCode. Python files will show results immediately, however, for img.playground, results after FFT will be saved to a folder. 
 
 ## Python FFT function
 python_img_fft.py file is to perform np.fft.fft2 function on an image. With the input of the image on the left, np.fft.fft2 is performed to output middle and right images which are fast fourier transform's magnitude and phase.
