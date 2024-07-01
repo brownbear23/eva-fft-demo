@@ -2,17 +2,17 @@ import Foundation
 import Accelerate
 import AppKit
 
-// generate an array of Float numbers from 1 to 100
+// generate an array of Float numbers from 1 to 64
 func generateArray(from start: Int, to end: Int) -> [Float] {
     return (start...end).map { Float($0) }
 }
 
-var pixels: [Float] = generateArray(from: 1, to: 100)
+var pixels: [Float] = generateArray(from: 1, to: 64)
 
 func printValues(_ label: String, values: [Float], width: Int, height: Int) {
     print(label)
     let maxVal = values.map { abs($0) }.max() ?? 0
-    let maxValLength = String(format: "%.2f", maxVal).count + 1 
+    let maxValLength = String(format: "%.2f", maxVal).count + 1
     
     for i in 0..<height {
         var formattedRow: [String] = []
@@ -63,8 +63,8 @@ func performFFT(serialImagePixels: inout [Float], width: Int, height: Int) -> (r
 }
 
 // example of calling the function
-let width = 10
-let height = 10
+let width = 8
+let height = 8
 
 printValues("Input:", values: pixels, width: width, height: height)
 let (real, imag) = performFFT(serialImagePixels: &pixels, width: width, height: height)
