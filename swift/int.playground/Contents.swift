@@ -31,20 +31,14 @@ func performFFT(imageData: inout [Float], width: Int, height: Int) -> (real: [Fl
     let columnCount = width
     
     // create split complex format for FFT
-    var realParts = [Float](repeating: 0.0, count: rowCount * columnCount)
-    var imaginaryParts = [Float](repeating: 0.0, count: rowCount * columnCount)
+    var realParts = [Float](repeating: 0.0, count: rowCount * columnCount / 2)
+    var imaginaryParts = [Float](repeating: 0.0, count: rowCount * columnCount / 2)
     var splitComplex = DSPSplitComplex(realp: &realParts, imagp: &imaginaryParts)
     
     // convert input data to complex format
-    realParts.withUnsafeMutableBufferPointer { realBuffer in
-        imaginaryParts.withUnsafeMutableBufferPointer { imagBuffer in
-            var splitComplex = DSPSplitComplex(realp: realBuffer.baseAddress!,
-                                               imagp: imagBuffer.baseAddress!)
-            imageData.withUnsafeBufferPointer { imageDataPtr in
-                imageDataPtr.baseAddress!.withMemoryRebound(to: DSPComplex.self, capacity: imageData.count) { complexPtr in
-                    vDSP_ctoz(complexPtr, 2, &splitComplex, 1, vDSP_Length(rowCount * columnCount / 2))
-                }
-            }
+    imageData.withUnsafeBufferPointer { imageDataPtr in
+        imageDataPtr.baseAddress!.withMemoryRebound(to: DSPComplex.self, capacity: imageData.count) { complexPtr in
+            vDSP_ctoz(complexPtr, 2, &splitComplex, 1, vDSP_Length(rowCount * columnCount / 2))
         }
     }
     
@@ -55,7 +49,33 @@ func performFFT(imageData: inout [Float], width: Int, height: Int) -> (real: [Fl
         vDSP_destroy_fftsetup(fftSetup)
     }
     
-    return (realParts, imaginaryParts)
+    // scale the results
+    let scaleFactor = 1.0 / Float(rowCount * columnCount)
+    vDSP_vsmul(splitComplex.realp, 1, [scaleFactor], splitComplex.realp, 1, vDSP_Length(rowCount * columnCount / 2))
+    vDSP_vsmul(splitComplex.imagp, 1, [scaleFactor], splitComplex.imagp, 1, vDSP_Length(rowCount * columnCount / 2))
+    
+    // unpack the complex results
+    var realOutput = [Float](repeating: 0.0, count: rowCount * columnCount)
+    var imagOutput = [Float](repeating: 0.0, count: rowCount * columnCount)
+    
+    for i in 0..<rowCount {
+        for j in 0..<columnCount / 2 {
+            realOutput[i * columnCount + j] = splitComplex.realp[i * columnCount / 2 + j]
+            imagOutput[i * columnCount + j] = splitComplex.imagp[i * columnCount / 2 + j]
+            if j > 0 {
+                realOutput[i * columnCount + (columnCount - j)] = splitComplex.realp[i * columnCount / 2 + j]
+                imagOutput[i * columnCount + (columnCount - j)] = -splitComplex.imagp[i * columnCount / 2 + j]
+            }
+        }
+    }
+    
+    // handle the Nyquist component separately
+    for i in 0..<rowCount {
+        realOutput[i * columnCount + columnCount / 2] = splitComplex.realp[i * columnCount / 2]
+        imagOutput[i * columnCount + columnCount / 2] = splitComplex.imagp[i * columnCount / 2]
+    }
+    
+    return (realOutput, imagOutput)
 }
 
 // example of calling the function
