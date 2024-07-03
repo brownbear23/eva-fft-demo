@@ -26,40 +26,36 @@ func printValues(_ label: String, values: [Float], width: Int, height: Int) {
     print("")
 }
 
-func performFFT(serialImagePixels: inout [Float], width: Int, height: Int) -> (real: [Float], imag: [Float]) {
-    // initialize the arrays for the real and imaginary parts of the complex numbers
-    var complexReals = [Float](repeating: 0, count: width * height)
-    var complexImaginaries = [Float](repeating: 0, count: width * height)
-
-    // copy input image pixles into real part array
-    complexReals = serialImagePixels
-    // withUnsafeMutableBufferPointer is used to get pointers to arrays
-    complexReals.withUnsafeMutableBufferPointer { realPtr in
-        complexImaginaries.withUnsafeMutableBufferPointer { imagPtr in
-            // initializing for DSPlitComplex Structure
-            var splitComplex = DSPSplitComplex(
-                realp: realPtr.baseAddress!,
-                imagp: imagPtr.baseAddress!)
-            
-            // binary logarithm of `max(rowCount, columnCount)`.
-            let setupLog2n = vDSP_Length(log2(Float(max(width, height))))
-            let widthLog2n = vDSP_Length(log2(Float(width)))
-            let heightLog2n = vDSP_Length(log2(Float(height)))
-            
-            // fft setup object
-            if let fft = vDSP_create_fftsetup(setupLog2n, FFTRadix(kFFTRadix2)) {
-                // perform FFT on the split complex data
-                vDSP_fft2d_zip(fft, &splitComplex,
-                               1, 0,
-                               widthLog2n, heightLog2n,
-                               FFTDirection(kFFTDirection_Forward))
-                // destroy FFT setup to free up memory
-                vDSP_destroy_fftsetup(fft)
+func performFFT(imageData: inout [Float], width: Int, height: Int) -> (real: [Float], imag: [Float]) {
+    let rowCount = height
+    let columnCount = width
+    
+    // create split complex format for FFT
+    var realParts = [Float](repeating: 0.0, count: rowCount * columnCount)
+    var imaginaryParts = [Float](repeating: 0.0, count: rowCount * columnCount)
+    var splitComplex = DSPSplitComplex(realp: &realParts, imagp: &imaginaryParts)
+    
+    // convert input data to complex format
+    realParts.withUnsafeMutableBufferPointer { realBuffer in
+        imaginaryParts.withUnsafeMutableBufferPointer { imagBuffer in
+            var splitComplex = DSPSplitComplex(realp: realBuffer.baseAddress!,
+                                               imagp: imagBuffer.baseAddress!)
+            imageData.withUnsafeBufferPointer { imageDataPtr in
+                imageDataPtr.baseAddress!.withMemoryRebound(to: DSPComplex.self, capacity: imageData.count) { complexPtr in
+                    vDSP_ctoz(complexPtr, 2, &splitComplex, 1, vDSP_Length(rowCount * columnCount / 2))
+                }
             }
         }
     }
-    // return real and imaginary parts after performing FFT
-    return (complexReals, complexImaginaries)
+    
+    // perform the FFT
+    let log2n = vDSP_Length(log2(Float(columnCount)))
+    if let fftSetup = vDSP_create_fftsetup(log2n, FFTRadix(kFFTRadix2)) {
+        vDSP_fft2d_zrip(fftSetup, &splitComplex, 1, 0, log2n, log2n, FFTDirection(FFT_FORWARD))
+        vDSP_destroy_fftsetup(fftSetup)
+    }
+    
+    return (realParts, imaginaryParts)
 }
 
 // example of calling the function
@@ -67,6 +63,6 @@ let width = 8
 let height = 8
 
 printValues("Input:", values: pixels, width: width, height: height)
-let (real, imag) = performFFT(serialImagePixels: &pixels, width: width, height: height)
+let (real, imag) = performFFT(imageData: &pixels, width: width, height: height)
 printValues("Output-Real Part:", values: real, width: width, height: height)
 printValues("Output-Imaginary Part:", values: imag, width: width, height: height)
