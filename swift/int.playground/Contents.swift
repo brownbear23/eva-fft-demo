@@ -7,8 +7,6 @@ func generateArray(from start: Int, to end: Int) -> [Float] {
     return (start...end).map { Float($0) }
 }
 
-var pixels: [Float] = generateArray(from: 1, to: 64)
-
 func printValues(_ label: String, values: [Float], width: Int, height: Int) {
     print(label)
     let maxVal = values.map { abs($0) }.max() ?? 0
@@ -26,54 +24,44 @@ func printValues(_ label: String, values: [Float], width: Int, height: Int) {
     print("")
 }
 
+func nextPowerOfTwo(_ n: Int) -> Int {
+    return Int(pow(2.0, ceil(log2(Double(n)))))
+}
+
 func performFFT(imageData: inout [Float], width: Int, height: Int) -> (real: [Float], imag: [Float]) {
-    let rowCount = height
-    let columnCount = width
+    let rowCount = nextPowerOfTwo(height)
+    let columnCount  = nextPowerOfTwo(width)
+    let frameCount = height * width
+    let paddedSize = nextPowerOfTwo(height * width)
+    print(rowCount,columnCount,paddedSize)
     
     // create split complex format for FFT
-    var realParts = [Float](repeating: 0.0, count: rowCount * columnCount / 2)
-    var imaginaryParts = [Float](repeating: 0.0, count: rowCount * columnCount / 2)
-    var splitComplex = DSPSplitComplex(realp: &realParts, imagp: &imaginaryParts)
+    var realParts = UnsafeMutableBufferPointer<Float>.allocate(capacity: paddedSize)
+    defer {realParts.deallocate()}
+
+    var imaginaryParts = UnsafeMutableBufferPointer<Float>.allocate(capacity: paddedSize)
+    defer {imaginaryParts.deallocate()}
     
-    // convert input data to complex format
-    imageData.withUnsafeBufferPointer { imageDataPtr in
-        imageDataPtr.baseAddress!.withMemoryRebound(to: DSPComplex.self, capacity: imageData.count) { complexPtr in
-            vDSP_ctoz(complexPtr, 2, &splitComplex, 1, vDSP_Length(rowCount * columnCount / 2))
-        }
-    }
+
+    // initialize the real buffer with the original data and pad the rest with zeros
+    _ = realParts.initialize(from: imageData + Array(repeating: 0.0, count: paddedSize - frameCount))
+       
+    imaginaryParts.initialize(repeating: 0.0)
+    
+    var splitComplex = DSPSplitComplex(realp: realParts.baseAddress!, imagp: imaginaryParts.baseAddress!)
     
     // perform the FFT
-    let log2n = vDSP_Length(log2(Float(columnCount)))
+    let log2n = vDSP_Length(Int(log2(Float(max(rowCount, columnCount)))))
+    let widthLog2n = vDSP_Length(Int(log2(Float(columnCount))))
+    let heightLog2n = vDSP_Length(Int(log2(Float(rowCount))))
+    
     if let fftSetup = vDSP_create_fftsetup(log2n, FFTRadix(kFFTRadix2)) {
-        vDSP_fft2d_zrip(fftSetup, &splitComplex, 1, 0, log2n, log2n, FFTDirection(FFT_FORWARD))
+        vDSP_fft2d_zip(fftSetup, &splitComplex, 1, 0, widthLog2n, heightLog2n, FFTDirection(FFT_FORWARD))
         vDSP_destroy_fftsetup(fftSetup)
     }
     
-    // scale the results
-    let scaleFactor = 1.0 / Float(rowCount * columnCount)
-    vDSP_vsmul(splitComplex.realp, 1, [scaleFactor], splitComplex.realp, 1, vDSP_Length(rowCount * columnCount / 2))
-    vDSP_vsmul(splitComplex.imagp, 1, [scaleFactor], splitComplex.imagp, 1, vDSP_Length(rowCount * columnCount / 2))
-    
-    // unpack the complex results
-    var realOutput = [Float](repeating: 0.0, count: rowCount * columnCount)
-    var imagOutput = [Float](repeating: 0.0, count: rowCount * columnCount)
-    
-    for i in 0..<rowCount {
-        for j in 0..<columnCount / 2 {
-            realOutput[i * columnCount + j] = splitComplex.realp[i * columnCount / 2 + j]
-            imagOutput[i * columnCount + j] = splitComplex.imagp[i * columnCount / 2 + j]
-            if j > 0 {
-                realOutput[i * columnCount + (columnCount - j)] = splitComplex.realp[i * columnCount / 2 + j]
-                imagOutput[i * columnCount + (columnCount - j)] = -splitComplex.imagp[i * columnCount / 2 + j]
-            }
-        }
-    }
-    
-    // handle the Nyquist component separately
-    for i in 0..<rowCount {
-        realOutput[i * columnCount + columnCount / 2] = splitComplex.realp[i * columnCount / 2]
-        imagOutput[i * columnCount + columnCount / 2] = splitComplex.imagp[i * columnCount / 2]
-    }
+    let realOutput = Array(realParts)
+    let imagOutput = Array(imaginaryParts)
     
     return (realOutput, imagOutput)
 }
@@ -81,8 +69,11 @@ func performFFT(imageData: inout [Float], width: Int, height: Int) -> (real: [Fl
 // example of calling the function
 let width = 8
 let height = 8
+var pixels: [Float] = generateArray(from: 1, to: width*height)
 
 printValues("Input:", values: pixels, width: width, height: height)
 let (real, imag) = performFFT(imageData: &pixels, width: width, height: height)
 printValues("Output-Real Part:", values: real, width: width, height: height)
 printValues("Output-Imaginary Part:", values: imag, width: width, height: height)
+
+
