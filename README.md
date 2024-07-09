@@ -1,9 +1,18 @@
 # FFT Documentation
 
-There is discrepancy between python's np.fft.fft2 function and swift's performFFT function. Same image and array of numbers with width and height are used for both functions. Their inputs and outputs are displayed individually below. Recommend running swift files, img.playground and int.playground, individually in Xcode and python files, python_img_fft.py and python_int_fft.py, in VSCode. Python files will show results immediately, however, for img.playground, results after FFT will be saved to a folder.
+There is discrepancy between python's np.fft.fft2 function and swift's performFFT function. Same image and array of numbers with width and height are used for both functions. Their inputs and outputs are displayed individually below. Recommend running swift files, img.playground and int.playground, individually in Xcode and python files, python_img_fft.py and python_int_fft.py, in VSCode. Python files will show results immediately, however, for img.playground, results after FFT will be saved to a folder. Click Finder > Documents then you will see original_image.png, magnitude_image.png, and phase_image.png.
 
-## Possible reasons for discrepancy
-difference in imaginary parts could be due to difference in normalization or padding of input. row-major and column-major ordering could have caused error as well. 
+## Updates
+
+From feedback: difference in imaginary parts could be due to difference in normalization or padding of input. row-major and column-major ordering could have caused error as well. 
+
+Fixed: used mutable pointer to handle data overflow, vDSP_fft_zip instead of vDSP_fft_rzip as the second function's output is packed and needs to be scaled by 1/2 to make the results to be the same as actual math output of standard FFT
+
+## Issues
+
+This doesn't apply to python numpy, but for swift's FFT function work properly, input's size has to be the power of 2. For now, nextPowerOfTwo function is created which calculates the next power of two greater than or equal to a given integer. With this function or the proper size of input, python and swift show the same output in integer demo. Image demo still has discrepancy in real(magnitude) parts, so I am currently working on it.
+
+
 ## Python FFT function
 
 python_img_fft.py file is to perform np.fft.fft2 function on an image. With the input of the image on the left, np.fft.fft2 is performed to output middle and right images which are fast fourier transform's magnitude and phase.
@@ -53,7 +62,8 @@ In python_int_fft.py file, np.fft.ftt2 function is performed with input of image
 ## Swift FFT function
 
 swift_img_fft.swift file is to run performFFT function on an image. With the input of the image on the left, it gets converted to grayscale. Then performFFT function is performed on the grayscale image to output middle and right images which are fast fourier transform's magnitude and phase. Swift's performFFT function is based on vDSP_fft2d_zip.
-![Swift output](outputs/swift_output.png)
+![Swift output](outputs/swift_output_real.png)
+![Swift output](outputs/swift_output_imaginary.png)
 
 In swift_int_fft.swift file, performFFT function is performed with input of serialImagePixels, width, and height. For serialImagePixels, list of floats that represent image pixels, fast fourier transform is performed with performFFT function
 to output real and imaginary parts which are shown below.
@@ -74,7 +84,7 @@ to output real and imaginary parts which are shown below.
 ### Output-Real part:
 
 ```
-2080.00   -32.00   -32.00   -32.00   -32.00   -32.00   -32.00   -32.00
+ 2080.00   -32.00   -32.00   -32.00   -32.00   -32.00   -32.00   -32.00
  -256.00     0.00     0.00     0.00     0.00     0.00     0.00     0.00
  -256.00     0.00     0.00     0.00     0.00     0.00     0.00     0.00
  -256.00     0.00     0.00     0.00     0.00     0.00     0.00     0.00
@@ -95,5 +105,4 @@ to output real and imaginary parts which are shown below.
 -106.04    0.00    0.00    0.00    0.00    0.00    0.00    0.00
 -256.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00
 -618.04    0.00    0.00    0.00    0.00    0.00    0.00    0.00
-
 ```

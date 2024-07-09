@@ -32,37 +32,77 @@ func loadImage(path: String) -> (image: NSImage?, pixelData: [Float]?, width: In
     return (image, pixelData, width, height)
 }
 
-// array of float values of pixel intensities of image and image's width and height for input
-func performFFT(serialImagePixels: inout [Float], width: Int, height: Int) -> (real: [Float], imag: [Float]) {
-    // initialize the real part of complex numbers
-    var complexReals = serialImagePixels
-    // initialize the imaginary part of the complex numbers
-    var complexImaginaries = [Float](repeating: 0, count: width * height)
 
-    // withUnsafeMutableBufferPointer used
-    complexReals.withUnsafeMutableBufferPointer { realPtr in
-        complexImaginaries.withUnsafeMutableBufferPointer { imagPtr in
-            // initialize a DSPSplitComplex structure with pointers to the real and imaginary parts
-            var splitComplex = DSPSplitComplex(realp: realPtr.baseAddress!, imagp: imagPtr.baseAddress!)
-            let setupLog2n = vDSP_Length(log2(Float(max(width, height))))
-            let widthLog2n = vDSP_Length(log2(Float(width)))
-            let heightLog2n = vDSP_Length(log2(Float(height)))
-
-            // fft setup before performing FFT
-            if let fft = vDSP_create_fftsetup(setupLog2n, FFTRadix(kFFTRadix2)) {
-                // perform FFT
-                vDSP_fft2d_zip(fft, &splitComplex, 1, 0, widthLog2n, heightLog2n, FFTDirection(kFFTDirection_Forward))
-                // destory FFT setup to free up memory
-                vDSP_destroy_fftsetup(fft)
-            } else {
-                // when FFT setup object can't be created
-                print("Failed to create FFT setup.")
-            }
+func printValues(_ label: String, values: [Float], width: Int, height: Int) {
+    print(label)
+    let maxVal = values.map { abs($0) }.max() ?? 0
+    let maxValLength = String(format: "%.2f", maxVal).count + 1
+    
+    for i in 0..<6 {
+        var formattedRow: [String] = []
+        for j in 0..<6 {
+            let val = values[i * width + j]
+            let formattedVal = String(format: "%\(maxValLength).2f", val)
+            formattedRow.append(formattedVal)
         }
+        print(formattedRow.joined(separator: " "))
     }
-    // real and imaginary parts after FFT
-    return (complexReals, complexImaginaries)
+    print("")
 }
+
+func nextPowerOfTwo(_ n: Int) -> Int {
+    return Int(pow(2.0, ceil(log2(Double(n)))))
+}
+
+// array of float values of pixel intensities of image and image's width and height for input
+func performFFT(imageData: inout [Float], width: Int, height: Int) -> (real: [Float], imag: [Float]) {
+    let rowCount = nextPowerOfTwo(height)
+    let columnCount  = nextPowerOfTwo(width)
+    let frameCount = height * width
+    let paddedSize = nextPowerOfTwo(height * width)
+    print(rowCount,columnCount,paddedSize)
+    
+    // create split complex format for FFT
+    var realParts = UnsafeMutableBufferPointer<Float>.allocate(capacity: paddedSize)
+    defer {realParts.deallocate()}
+
+    var imaginaryParts = UnsafeMutableBufferPointer<Float>.allocate(capacity: paddedSize)
+    defer {imaginaryParts.deallocate()}
+    
+
+    // initialize the real buffer with the original data and pad the rest with zeros
+    _ = realParts.initialize(from: imageData + Array(repeating: 0.0, count: paddedSize - frameCount))
+       
+    imaginaryParts.initialize(repeating: 0.0)
+    
+    var splitComplex = DSPSplitComplex(realp: realParts.baseAddress!, imagp: imaginaryParts.baseAddress!)
+    
+    // perform the FFT
+    let log2n = vDSP_Length(Int(log2(Float(max(rowCount, columnCount)))))
+    let widthLog2n = vDSP_Length(Int(log2(Float(columnCount))))
+    let heightLog2n = vDSP_Length(Int(log2(Float(rowCount))))
+    
+    if let fftSetup = vDSP_create_fftsetup(log2n, FFTRadix(kFFTRadix2)) {
+        vDSP_fft2d_zip(fftSetup, &splitComplex, 1, 0, widthLog2n, heightLog2n, FFTDirection(FFT_FORWARD))
+        vDSP_destroy_fftsetup(fftSetup)
+    }
+    
+    let realOutput = Array(realParts)
+    let imagOutput = Array(imaginaryParts)
+    
+    return (realOutput, imagOutput)
+}
+
+func generateArray(from start: Int, to end: Int) -> [Float] {
+    return (start...end).map { Float($0) }
+}
+let width = 512
+let height = 1024
+var pixels: [Float] = generateArray(from: 1, to: width*height)
+
+let (real, imag) = performFFT(imageData: &pixels, width: width, height: height)
+printValues("Output-Real Part:", values: real, width: width, height: height)
+printValues("Output-Imaginary Part:", values: imag, width: width, height: height)
 
 // compute magnitude and phase from FFT results
 func computeMagnitudeAndPhase(real: [Float], imag: [Float]) -> (magnitude: [Float], phase: [Float]) {
@@ -133,7 +173,7 @@ if let imagePath = Bundle.main.path(forResource: "sample_img", ofType: "jpg") {
     if let (originalImage, pixelData, width, height) = loadImage(path: imagePath),
        var pixels = pixelData {
 
-        let (real, imag) = performFFT(serialImagePixels: &pixels, width: width, height: height)
+        let (real, imag) = performFFT(imageData: &pixels, width: width, height: height)
         let (magnitude, phase) = computeMagnitudeAndPhase(real: real, imag: imag)
 
         let magnitudeImage = createImage(from: magnitude, width: width, height: height)
